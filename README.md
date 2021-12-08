@@ -30,6 +30,15 @@ If the version file looked like this:
     "core": "1.45.0",
     "risk": "1.45.0",
     "pops": "1.45.0",
+    "corn": "1.0.0"
 }
 ```
-And the new version (steps.semver.outputs.version) was determined to be 1.5.0  The new versin
+And the new version (steps.semver.outputs.version) was determined to be 1.5.0  The new version file would look like:
+```
+{
+    "core": "1.5.0",
+    "risk": "1.5.0",
+    "pops": "1.5.0",
+    "corn": "1.0.0"
+}
+```
