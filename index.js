@@ -26,7 +26,7 @@ if (version === "0") {
     return;
 }
 
-if (!files) {
+if (!filename) {
     console.log('files is required parameter')
     process.exit(1);
     return;
