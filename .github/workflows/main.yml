@@ -23,7 +23,7 @@ jobs:
         env:
           GITHUB_TOKEN: "${{ github.token }}"
       - name: 'Set Version Test'
-        uses: "cdotyabgithub-set-version@main"
+        uses: "cdotyab/github-set-version@main"
         with:
           version: ${{steps.semver.outputs.version}}
           files: test/*.json
