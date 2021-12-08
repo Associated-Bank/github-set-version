@@ -53,7 +53,7 @@ jobs:
         continue-on-error: true
       - name: Conventional Changelog Action
         id: changelog
-        uses: associated-bank/conventional-changelog-action@v3
+        uses: associated-bank/conventional-changelog-action@main
         with:
           github-token: ${{ secrets.github_token }}
           output-file: "CHANGELOG.md"
