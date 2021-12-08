@@ -1,0 +1,61 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  Test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: 'Commit Lint'
+        uses: "associated-bank/github-commit-lint@main"
+        with:
+          message: "${{github.event.head_commit.message}}"
+      - name: 'Get Previous tag'
+        id: semver
+        uses: "associated-bank/github-next-version@main"
+        with:
+          message: "${{github.event.head_commit.message}}"
+        env:
+          GITHUB_TOKEN: "${{ github.token }}"
+      - name: 'Set Previous Version'
+        uses: "associated-bank/github-replace-version@main"
+        with:
+          version: ${{steps.semver.outputs.version}}
+          debug: true
+  Build:
+    runs-on: ubuntu-latest
+    needs: [Test]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Dependencies
+        run: npm install
+      - name: Build
+        run: npm run build
+      - name: Release
+        run: |
+          git config --global user.email "cdotyab"
+          git config --global user.name "cdotyab"
+          git add .
+          git commit -a -m "build: auto build"
+        continue-on-error: true
+      - name: Conventional Changelog Action
+        id: changelog
+        uses: associated-bank/conventional-changelog-action@v3
+        with:
+          github-token: ${{ secrets.github_token }}
+          output-file: "CHANGELOG.md"
+      - name: Create Release
+        uses: actions/create-release@v1
+        if: ${{ steps.changelog.outputs.skipped == 'false' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.github_token }}
+        with:
+          tag_name: ${{ steps.changelog.outputs.tag }}
+          release_name: ${{ steps.changelog.outputs.tag }}
+          body: ${{ steps.changelog.outputs.clean_changelog }}
+

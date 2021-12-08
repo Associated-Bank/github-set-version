@@ -1,0 +1,28 @@
+name: 'Get README.md Version'
+description: 'Set README.md file version'
+branding:
+  icon: 'tag'
+  color: 'gray-dark'
+inputs:
+  version:
+    description: 'version# to set, will pull from environment variable version'
+    required: false
+  template:
+    description: 'regex used to replace version #, {repo} will be replace with the repo name'
+    required: false
+    default: "{repo}\\?ref=(v?[0.9]*.[0.9]*.[0.9]*)"
+  files:
+    description: 'file patten to search for'
+    required: false
+    default: '**/README.md'
+  exclude:
+    description: 'directories to exclude, comma separated'
+    required: false
+    default: 'node_modules'
+  debug:
+    description: 'outputs instead of changing the file'
+    required: false
+    default: false
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
