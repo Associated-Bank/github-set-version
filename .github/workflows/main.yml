@@ -22,6 +22,11 @@ jobs:
           message: "${{github.event.head_commit.message}}"
         env:
           GITHUB_TOKEN: "${{ github.token }}"
+      - name: 'Build It'
+        run: |
+          rm package-lock.json
+          npm install
+          npm build
       - name: 'Set Version Test'
         uses: "cdotyab/github-set-version@main"
         with:
