@@ -10,73 +10,78 @@ const stringToRegExp = require('string-to-regexp');
 const readFile = util.promisify(fs.readFile);
 const writeFile = util.promisify(fs.writeFile);
 
-const debug = (''+core.getInput('debug'))==="true";
+const debug = ('' + core.getInput('debug')) === "true";
 
 let version = core.getInput('version') || process.env.version;
-if(!version) version = "0";
-version=version.replace(/v/g,'');
+if (!version) version = "0";
+version = version.replace(/v/g, '');
 
-///----------------------------------------------- KEEP??
-let rex = core.getInput('template') || '{repo}\\?ref=(v?[0.9]*\.[0.9]*\.[0.9]*)';
-rex = rex.replace(/\{repo\}/g, github.context.repo.repo);
-if(debug) console.log('replaceVersion: matching -',rex);
-rex = stringToRegExp('/'+rex+'/g');
+let filename = core.getInput('files');
+let modules = (core.getInput('modules') || 'core,pops').split(',');
 
-let inputFiles = (core.getInput('files') || '**/README.md').split(',');
-let exclude = (core.getInput('exclude') || 'node_modules').split(',');
-for(let i=0;i<exclude.length;i++) {
-    inputFiles.push('!'+exclude[i]);
-}
 
-if(version==="0")  {
+if (version === "0") {
     console.log('version is required parameter')
     process.exit(1);
     return;
 }
 
-if(version.indexOf('-')>0) {
-    version=version.split('-')[0];
+if (!files) {
+    console.log('files is required parameter')
+    process.exit(1);
+    return;
 }
 
 (async () => {
-    const files = await globby(inputFiles);
+    const files = await globby(filename);
 
-    if(debug) {
-        console.log('setNetVersion: start');
-        console.log('setNetVersion:',inputFiles);
-        console.log('setNetVersion:',files);
+    if (debug) {
+        console.log('setVersion: start');
+        console.log('setVersion:', filename);
+        console.log('setVersion:', files);
+        console.log('setVersion: modules', modules);
     }
 
-    if(files.length>0) {
-        console.log("replaceVersion: ",version);
+    if (files.length > 0) {
+        console.log("setVersion: ", version);
 
-        for(let i=0;i<files.length;i++) {
+        for (let i = 0; i < files.length; i++) {
             let filename = path.join(process.cwd(), files[i]);
 
-            if(debug)
-            console.log('replaceVersion: reading -', filename);
+            if (debug)
+                console.log('setVersion: reading -', filename);
 
             let data = await readFile(filename, 'utf8');
 
-            let matches = data.match(rex);
-            if(!matches) continue;
-            for(let j=0;j<matches.length;j++) {
-                let replace = matches[j].replace(/=v?[0.9]*.[0.9]*.[0.9]*/g,(m)=>{
-                    if(m.indexOf('.')>=0) return "="+(m.indexOf('v')>0?'v':'')+version;
-                    return m;
-                });
-                data = data.replace(matches[j], replace);
+            if (debug)
+                console.log('setVersion: \n', data);
+
+            for (let i = 0; i < modules.length; i++) {
+                let module = modules[i];
+                if (debug) console.log('setVersion: replacing ', module);
+
+                let rex = new RegExp('"' + module + '"\\s?:\\s?"(.*)"', "g");
+                let matches = data.match(rex);
+                if (!matches) {
+                    if (debug) console.log("no matches for: ", module);
+                    continue;
+                } else if (debug) {
+                    console.log(matches.length, " matches for: ", module);
+                }
+                for (let j = 0; j < matches.length; j++) {
+                    data = data.replace(matches[j], '"' + module + '":"' + version + '"');
+                }
             }
 
-            if(!debug) await writeFile(filename, data);
+            if (!debug) await writeFile(filename, data);
             else console.log(data);
-            console.log('replaceVersion: writing -', filename);
+            console.log('setVersion: writing -', filename);
         }
-        console.log('replaceVersion: done');
+        console.log('setVersion: done');
 
         process.exit(0);
     } else {
-        console.log("replaceVersion: no README.md file found");
+        console.log("setVersion: version file file found");
         process.exit(1);
     }
 })();

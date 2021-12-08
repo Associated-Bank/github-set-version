@@ -20,7 +20,7 @@ jobs:
         uses: "Associated-Bank//github-set-version@main"
         with:
           version: ${{steps.semver.outputs.version}}
-          file: /env/dev.version.json
+          files: /env/dev.version.json
           modules: core,risk,pops
 ```
 

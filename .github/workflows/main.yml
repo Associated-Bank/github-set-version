@@ -22,11 +22,14 @@ jobs:
           message: "${{github.event.head_commit.message}}"
         env:
           GITHUB_TOKEN: "${{ github.token }}"
-      - name: 'Set Previous Version'
-        uses: "associated-bank/github-replace-version@main"
+      - name: 'Set Version Test'
+        uses: "associated-bank/github-set-version@main"
         with:
           version: ${{steps.semver.outputs.version}}
+          files: test/*.json
+          modules: "corn,pops"
           debug: true
+
   Build:
     runs-on: ubuntu-latest
     needs: [Test]
