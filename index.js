@@ -15,6 +15,8 @@ const debug = (''+core.getInput('debug'))==="true";
 let version = core.getInput('version') || process.env.version;
 if(!version) version = "0";
 version=version.replace(/v/g,'');
+
+///----------------------------------------------- KEEP??
 let rex = core.getInput('template') || '{repo}\\?ref=(v?[0.9]*\.[0.9]*\.[0.9]*)';
 rex = rex.replace(/\{repo\}/g, github.context.repo.repo);
 if(debug) console.log('replaceVersion: matching -',rex);
