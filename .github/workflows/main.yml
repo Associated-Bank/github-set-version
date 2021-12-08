@@ -28,7 +28,7 @@ jobs:
           npm install
           npm run build
       - name: 'Set Version Test'
-        uses: "cdotyab/github-set-version@main"
+        uses: ./
         with:
           version: ${{steps.semver.outputs.version}}
           files: test/*.json
