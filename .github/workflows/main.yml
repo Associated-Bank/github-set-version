@@ -26,7 +26,7 @@ jobs:
         run: |
           rm package-lock.json
           npm install
-          npm build
+          npm run build
       - name: 'Set Version Test'
         uses: "cdotyab/github-set-version@main"
         with:
