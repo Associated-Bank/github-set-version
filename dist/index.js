@@ -154,6 +154,35 @@ eval("require")("encoding");
 
 /***/ }),
 
+/***/ 36:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.removeDuplicateSlashes = exports.transform = void 0;
+/**
+ * Matches a sequence of two or more consecutive slashes, excluding the first two slashes at the beginning of the string.
+ * The latter is due to the presence of the device path at the beginning of the UNC path.
+ * @todo rewrite to negative lookbehind with the next major release.
+ */
+const DOUBLE_SLASH_RE = /(?!^)\/{2,}/g;
+function transform(patterns) {
+    return patterns.map((pattern) => removeDuplicateSlashes(pattern));
+}
+exports.transform = transform;
+/**
+ * This package only works with forward slashes as a path separator.
+ * Because of this, we cannot use the standard `path.normalize` method, because on Windows platform it will use of backslashes.
+ */
+function removeDuplicateSlashes(pattern) {
+    return pattern.replace(DOUBLE_SLASH_RE, '/');
+}
+exports.removeDuplicateSlashes = removeDuplicateSlashes;
+
+
+/***/ }),
+
 /***/ 42:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -435,10 +464,10 @@ micromatch.not = (list, patterns, options = {}) => {
     items.push(state.output);
   };
 
-  let matches = micromatch(list, patterns, { ...options, onResult });
+  let matches = new Set(micromatch(list, patterns, { ...options, onResult }));
 
   for (let item of items) {
-    if (!matches.includes(item)) {
+    if (!matches.has(item)) {
       result.add(item);
     }
   }
@@ -688,7 +717,7 @@ micromatch.scan = (...args) => picomatch.scan(...args);
  *
  * ```js
  * const mm = require('micromatch');
- * const state = mm(pattern[, options]);
+ * const state = mm.parse(pattern[, options]);
  * ```
  * @param {String} `glob`
  * @param {Object} `options`
@@ -3877,10 +3906,36 @@ function getSettings(settingsOrOptions = {}) {
     var ARROW_FN_ARGS = /^(?:async\s+)?\(?\s*([^)=]+)\s*\)?(?:\s*=>)/;
     var FN_ARG_SPLIT = /,/;
     var FN_ARG = /(=.+)?(\s*)$/;
-    var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
+
+    function stripComments(string) {
+        let stripped = '';
+        let index = 0;
+        let endBlockComment = string.indexOf('*/');
+        while (index < string.length) {
+            if (string[index] === '/' && string[index+1] === '/') {
+                // inline comment
+                let endIndex = string.indexOf('\n', index);
+                index = (endIndex === -1) ? string.length : endIndex;
+            } else if ((endBlockComment !== -1) && (string[index] === '/') && (string[index+1] === '*')) {
+                // block comment
+                let endIndex = string.indexOf('*/', index);
+                if (endIndex !== -1) {
+                    index = endIndex + 2;
+                    endBlockComment = string.indexOf('*/', index);
+                } else {
+                    stripped += string[index];
+                    index++;
+                }
+            } else {
+                stripped += string[index];
+                index++;
+            }
+        }
+        return stripped;
+    }
 
     function parseParams(func) {
-        const src = func.toString().replace(STRIP_COMMENTS, '');
+        const src = stripComments(func.toString());
         let match = src.match(FN_ARGS);
         if (!match) {
             match = src.match(ARROW_FN_ARGS);
@@ -4637,7 +4692,7 @@ function getSettings(settingsOrOptions = {}) {
      * app.get('/cats', function(request, response) {
      *     var User = request.models.User;
      *     async.seq(
-     *         _.bind(User.get, User),  // 'User.get' has signature (id, callback(err, data))
+     *         User.get.bind(User),  // 'User.get' has signature (id, callback(err, data))
      *         function(user, fn) {
      *             user.getCats(fn);      // 'getCats' has signature (callback(err, data))
      *         }
@@ -6270,6 +6325,8 @@ function getSettings(settingsOrOptions = {}) {
         memoized.unmemoized = fn;
         return memoized;
     }
+
+    /* istanbul ignore file */
 
     /**
      * Calls `callback` on a later loop around the event loop. In Node.js this just
@@ -8746,6 +8803,8 @@ const define = (object, key, value) =>
 
 const REGEX_REGEXP_RANGE = /([0-z])-([0-z])/g
 
+const RETURN_FALSE = () => false
+
 // Sanitize the range of a regular expression
 // The cases are complicated, see test cases for details
 const sanitizeRange = range => range.replace(
@@ -9004,7 +9063,7 @@ const REPLACERS = [
 const regexCache = Object.create(null)
 
 // @param {pattern}
-const makeRegex = (pattern, ignorecase) => {
+const makeRegex = (pattern, ignoreCase) => {
   let source = regexCache[pattern]
 
   if (!source) {
@@ -9015,7 +9074,7 @@ const makeRegex = (pattern, ignorecase) => {
     regexCache[pattern] = source
   }
 
-  return ignorecase
+  return ignoreCase
     ? new RegExp(source, 'i')
     : new RegExp(source)
 }
@@ -9046,7 +9105,7 @@ class IgnoreRule {
   }
 }
 
-const createRule = (pattern, ignorecase) => {
+const createRule = (pattern, ignoreCase) => {
   const origin = pattern
   let negative = false
 
@@ -9064,7 +9123,7 @@ const createRule = (pattern, ignorecase) => {
   // >   begin with a hash.
   .replace(REGEX_REPLACE_LEADING_EXCAPED_HASH, '#')
 
-  const regex = makeRegex(pattern, ignorecase)
+  const regex = makeRegex(pattern, ignoreCase)
 
   return new IgnoreRule(
     origin,
@@ -9110,12 +9169,15 @@ checkPath.convert = p => p
 
 class Ignore {
   constructor ({
-    ignorecase = true
+    ignorecase = true,
+    ignoreCase = ignorecase,
+    allowRelativePaths = false
   } = {}) {
     define(this, KEY_IGNORE, true)
 
     this._rules = []
-    this._ignorecase = ignorecase
+    this._ignoreCase = ignoreCase
+    this._allowRelativePaths = allowRelativePaths
     this._initCache()
   }
 
@@ -9133,7 +9195,7 @@ class Ignore {
     }
 
     if (checkPattern(pattern)) {
-      const rule = createRule(pattern, this._ignorecase)
+      const rule = createRule(pattern, this._ignoreCase)
       this._added = true
       this._rules.push(rule)
     }
@@ -9212,7 +9274,13 @@ class Ignore {
       // Supports nullable path
       && checkPath.convert(originalPath)
 
-    checkPath(path, originalPath, throwError)
+    checkPath(
+      path,
+      originalPath,
+      this._allowRelativePaths
+        ? RETURN_FALSE
+        : throwError
+    )
 
     return this._t(path, cache, checkUnignored, slices)
   }
@@ -9270,10 +9338,8 @@ class Ignore {
 
 const factory = options => new Ignore(options)
 
-const returnFalse = () => false
-
 const isPathValid = path =>
-  checkPath(path && checkPath.convert(path), path, returnFalse)
+  checkPath(path && checkPath.convert(path), path, RETURN_FALSE)
 
 factory.isPathValid = isPathValid
 
@@ -11231,6 +11297,7 @@ exports.default = Settings;
 "use strict";
 
 const taskManager = __webpack_require__(384);
+const patternManager = __webpack_require__(36);
 const async_1 = __webpack_require__(113);
 const stream_1 = __webpack_require__(775);
 const sync_1 = __webpack_require__(78);
@@ -11264,7 +11331,7 @@ async function FastGlob(source, options) {
     FastGlob.stream = stream;
     function generateTasks(source, options) {
         assertPatternsInput(source);
-        const patterns = [].concat(source);
+        const patterns = patternManager.transform([].concat(source));
         const settings = new settings_1.default(options);
         return taskManager.generate(patterns, settings);
     }
@@ -11282,7 +11349,7 @@ async function FastGlob(source, options) {
     FastGlob.escapePath = escapePath;
 })(FastGlob || (FastGlob = {}));
 function getWorks(source, _Provider, options) {
-    const patterns = [].concat(source);
+    const patterns = patternManager.transform([].concat(source));
     const settings = new settings_1.default(options);
     const tasks = taskManager.generate(patterns, settings);
     const provider = new _Provider(settings);
@@ -11750,7 +11817,7 @@ function _objectWithoutProperties(source, excluded) {
   return target;
 }
 
-const VERSION = "3.5.1";
+const VERSION = "3.6.0";
 
 const _excluded = ["authStrategy"];
 class Octokit {
@@ -13325,9 +13392,17 @@ AbortError.prototype = Object.create(Error.prototype);
 AbortError.prototype.constructor = AbortError;
 AbortError.prototype.name = 'AbortError';
 
+const URL$1 = Url.URL || whatwgUrl.URL;
+
 // fix an issue where "PassThrough", "resolve" aren't a named export for node <10
 const PassThrough$1 = Stream.PassThrough;
-const resolve_url = Url.resolve;
+
+const isDomainOrSubdomain = function isDomainOrSubdomain(destination, original) {
+	const orig = new URL$1(original).hostname;
+	const dest = new URL$1(destination).hostname;
+
+	return orig === dest || orig[orig.length - dest.length - 1] === '.' && orig.endsWith(dest);
+};
 
 /**
  * Fetch function
@@ -13415,7 +13490,19 @@ function fetch(url, opts) {
 				const location = headers.get('Location');
 
 				// HTTP fetch step 5.3
-				const locationURL = location === null ? null : resolve_url(request.url, location);
+				let locationURL = null;
+				try {
+					locationURL = location === null ? null : new URL$1(location, request.url).toString();
+				} catch (err) {
+					// error here can only be invalid URL in Location: header
+					// do not throw when options.redirect == manual
+					// let the user extract the errorneous redirect URL
+					if (request.redirect !== 'manual') {
+						reject(new FetchError(`uri requested responds with an invalid redirect URL: ${location}`, 'invalid-redirect'));
+						finalize();
+						return;
+					}
+				}
 
 				// HTTP fetch step 5.5
 				switch (request.redirect) {
@@ -13462,6 +13549,12 @@ function fetch(url, opts) {
 							timeout: request.timeout,
 							size: request.size
 						};
+
+						if (!isDomainOrSubdomain(request.url, locationURL)) {
+							for (const name of ['authorization', 'www-authenticate', 'cookie', 'cookie2']) {
+								requestOpts.headers.delete(name);
+							}
+						}
 
 						// HTTP-redirect fetch step 9
 						if (res.statusCode !== 303 && request.body && getTotalBytes(request) === null) {
@@ -16501,9 +16594,13 @@ class EntryFilter {
         const fullpath = utils.path.makeAbsolute(this._settings.cwd, entryPath);
         return utils.pattern.matchAny(fullpath, patternsRe);
     }
+    /**
+     * First, just trying to apply patterns to the path.
+     * Second, trying to apply patterns to the path with final slash.
+     */
     _isMatchToPatterns(entryPath, patternsRe) {
         const filepath = utils.path.removeLeadingDotSegment(entryPath);
-        return utils.pattern.matchAny(filepath, patternsRe);
+        return utils.pattern.matchAny(filepath, patternsRe) || utils.pattern.matchAny(filepath + '/', patternsRe);
     }
 }
 exports.default = EntryFilter;
@@ -16524,10 +16621,10 @@ const micromatch = __webpack_require__(74);
 const GLOBSTAR = '**';
 const ESCAPE_SYMBOL = '\\';
 const COMMON_GLOB_SYMBOLS_RE = /[*?]|^!/;
-const REGEX_CHARACTER_CLASS_SYMBOLS_RE = /\[.*]/;
-const REGEX_GROUP_SYMBOLS_RE = /(?:^|[^!*+?@])\(.*\|.*\)/;
-const GLOB_EXTENSION_SYMBOLS_RE = /[!*+?@]\(.*\)/;
-const BRACE_EXPANSIONS_SYMBOLS_RE = /{.*(?:,|\.\.).*}/;
+const REGEX_CHARACTER_CLASS_SYMBOLS_RE = /\[[^[]*]/;
+const REGEX_GROUP_SYMBOLS_RE = /(?:^|[^!*+?@])\([^(]*\|[^|]*\)/;
+const GLOB_EXTENSION_SYMBOLS_RE = /[!*+?@]\([^(]*\)/;
+const BRACE_EXPANSION_SEPARATORS_RE = /,|\.\./;
 function isStaticPattern(pattern, options = {}) {
     return !isDynamicPattern(pattern, options);
 }
@@ -16554,12 +16651,24 @@ function isDynamicPattern(pattern, options = {}) {
     if (options.extglob !== false && GLOB_EXTENSION_SYMBOLS_RE.test(pattern)) {
         return true;
     }
-    if (options.braceExpansion !== false && BRACE_EXPANSIONS_SYMBOLS_RE.test(pattern)) {
+    if (options.braceExpansion !== false && hasBraceExpansion(pattern)) {
         return true;
     }
     return false;
 }
 exports.isDynamicPattern = isDynamicPattern;
+function hasBraceExpansion(pattern) {
+    const openingBraceIndex = pattern.indexOf('{');
+    if (openingBraceIndex === -1) {
+        return false;
+    }
+    const closingBraceIndex = pattern.indexOf('}', openingBraceIndex + 1);
+    if (closingBraceIndex === -1) {
+        return false;
+    }
+    const braceContent = pattern.slice(openingBraceIndex, closingBraceIndex);
+    return BRACE_EXPANSION_SEPARATORS_RE.test(braceContent);
+}
 function convertToPositivePattern(pattern) {
     return isNegativePattern(pattern) ? pattern.slice(1) : pattern;
 }
@@ -17084,7 +17193,7 @@ var isPlainObject = __webpack_require__(356);
 var nodeFetch = _interopDefault(__webpack_require__(454));
 var requestError = __webpack_require__(463);
 
-const VERSION = "5.6.2";
+const VERSION = "5.6.3";
 
 function getBufferResponse(response) {
   return response.arrayBuffer();
@@ -18524,7 +18633,14 @@ const parse = (input, options) => {
       }
 
       if (token.inner.includes('*') && (rest = remaining()) && /^\.[^\\/.]+$/.test(rest)) {
-        output = token.close = `)${rest})${extglobStar})`;
+        // Any non-magical string (`.ts`) or even nested expression (`.{ts,tsx}`) can follow after the closing parenthesis.
+        // In this case, we need to parse the string and use it in the output of the original pattern.
+        // Suitable patterns: `/!(*.d).ts`, `/!(*.d).{ts,tsx}`, `**/!(*-dbg).@(js)`.
+        //
+        // Disabling the `fastpaths` option due to a problem with parsing strings as `.ts` in the pattern like `**/!(*.d).ts`.
+        const expression = parse(rest, { ...options, fastpaths: false }).output;
+
+        output = token.close = `)${expression})${extglobStar})`;
       }
 
       if (token.prev.type === 'bos') {
